@@ -1,0 +1,1928 @@
+[Bruker]
+
+X_train_mean = np.mean(X_train,axis=0)
+X_train_scaled = X_train - X_train_mean
+X_test_scaled = X_test - X_train_mean
+
+
+[GPT]
+
+In the code snippet you've provided, you are standardizing your training (`X_train`) and test (`X_test`) datasets. Here is a breakdown of what each step is doing:
+
+1. **Compute the Mean of the Training Data**:
+    ```python
+    X_train_mean = np.mean(X_train, axis=0)
+    ```
+    This calculates the mean of each feature (column) in the training data. The `axis=0` parameter specifies that the mean should be calculated along the column, resulting in a 1D array where each element corresponds to the mean of a feature.
+
+2. **Center the Training Data**:
+    ```python
+    X_train_scaled = X_train - X_train_mean
+    ```
+    This subtracts the mean of each feature (calculated in the previous step) from the training data. As a result, this centers the training data around zero for each feature. This process is known as mean centering or zero centering.
+
+3. **Center the Test Data Using Training Data Mean**:
+    ```python
+    X_test_scaled = X_test - X_train_mean
+    ```
+    This step centers the test data using the mean of the training data. It is crucial to use the mean of the training data rather than calculating the mean of the test data separately. This ensures that the test data is scaled in the same way as the training data, maintaining consistency during model evaluation.
+
+### Why is this Important?
+Standardizing your data, especially in machine learning tasks, can be essential for algorithms that are sensitive to the scale of the data, such as:
+- Gradient descent-based algorithms (e.g., Linear Regression, Logistic Regression)
+- Neural networks
+- Distance-based algorithms (e.g., K-Nearest Neighbors, SVM with RBF kernel)
+
+By centering the data, you make the optimization process more efficient and can ensure better performance of your machine learning model.
+
+### Notes:
+- This process only centers the data but does not scale it to unit variance. Sometimes, it is also common to standardize the data to have a standard deviation of 1. This would involve dividing by the standard deviation as well.
+- If you also want to the data to unit variance, you can use:
+    ```python
+    X_train_std = np.std(X_train, axis=0)
+    X_train_scaled = (X_train - X_train_mean) / X_train_std
+    X_test_scaled = (X_test - X_train_mean) / X_train_std
+    ```
+- Using libraries such as `StandardScaler` from `scikit-learn` can simplify this process:
+    ```python
+    from sklearn.preprocessing import StandardScaler
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    ```
+
+Make sure to always use the training data statistics (mean and standard deviation) when transforming the test data to avoid data leakage and ensure consistency.
+
+
+[Bruker]
+
+why do you subract X_test by X_train_mean?
+
+
+[GPT]
+
+Subtracting the mean of the training data (`X_train_mean`) from the test data (`X_test`) ensures that the test data is standardized in the same way as the training data. This is crucial for maintaining the consistency and integrity of the model's performance measurements.
+
+### Reasons for Using Training Data Mean for Test Data
+
+1. **Consistency and Fair Evaluation**:
+    - If you use the mean of the test data (`X_test_mean`) to center the test set, you'll be incorrectly shifting your test data distribution. The model was trained with data centered around the mean of `X_train`, and applying a different centering to the test data can potentially degrade model performance.
+    - Using `X_train_mean` ensures that the distribution of the data remains consistent between training and testing phases, leading to a fair evaluation of the model.
+
+2. **Avoiding Data Leakage**:
+    - Data leakage occurs when information from outside the training dataset is used to create the model, leading to overly optimistic performance estimates that won't generalize to new, unseen data.
+    - By computing the mean from `X_train` only and applying it to both training and test sets, you prevent information from the test set from leaking into the training process.
+
+### Example Scenario
+
+Consider a simple example to illustrate the importance of using the training data mean:
+
+- Suppose `X_train` has a feature with values `[1, 2, 3, 4, 5]`.
+  - The mean (`X_train_mean`) is 3.
+  - Centering the training data gives `[-2, -1, 0, 1, 2]`.
+
+- Suppose `X_test` has values `[6, 7, 8]`.
+  - If you use `X_train_mean` for centering, it results in `[3, 4, 5]`, which matches the scale used during training.
+  - If you wrongly compute the mean of `X_test` (which is 7) and center using it, you get `[-1, 0, 1]`. This shifts the test data differently from the training data, leading to inconsistencies and potential performance issues.
+
+### Code Example
+
+Here's a basic example using NumPy to illustrate this:
+
+```python
+import numpy as np
+
+# Training data
+X_train = np.array([[1, 2], [3, 4], [5, 6]])
+X_train_mean = np.mean(X_train, axis=0)
+
+# Center the training data
+X_train_scaled = X_train - X_train_mean
+
+# Test data
+X_test = np.array([[7, 8], [9, 10]])
+
+# Center the test data using training data mean
+X_test_scaled = X_test - X_train_mean
+
+print("Training Mean:", X_train_mean)
+print("Scaled Training Data:\n", X_train_scaled)
+print("Scaled Test Data:\n", X_test_scaled)
+```
+
+Output:
+```plaintext
+Training Mean: [3. 4.]
+Scaled Training Data:
+ [[-2. -2.]
+ [ 0.  0.]
+ [ 2.  2.]]
+Scaled Test Data:
+ [[4.  4.]
+ [6.  6.]]
+```
+
+By maintaining the same mean shift for both training and test data, you ensure that the model's decision boundaries remain consistent, leading to fair and accurate performance evaluation.
+
+
+[Bruker]
+
+#solution a) without scaling
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+from numpy.linalg import inv
+
+# Set random seed for reproducibility
+np.random.seed(315)
+
+# Define the Franke Function
+def FrankeFunction(x, y):
+    term1 = 0.75 * np.exp(-((9 * x - 2) ** 2) / 4.0 - ((9 * y - 2) ** 2) / 4.0)
+    term2 = 0.75 * np.exp(-(9 * x + 1) ** 2 / 49.0 - 0.1 * (9 * y + 1))
+    term3 = 0.5 * np.exp(-(9 * x - 7) ** 2 / 4.0 - ((9 * y - 3) ** 2) / 4.0)
+    term4 = -0.2 * np.exp(-(9 * x - 4) ** 2 - (9 * y - 7) ** 2)
+    return term1 + term2 + term3 + term4 + 0.1 * np.random.randn(*x.shape)
+
+# Function to create design matrix
+def create_design_matrix(x, y, degree):
+    num_terms = int((degree + 1)*(degree + 2)/2)
+    X = np.zeros((len(x), num_terms))
+    idx = 0
+    for i in range(degree + 1):
+        for j in range(degree + 1 - i):
+            X[:, idx] = (x**i) * (y**j)
+            idx += 1
+    return X
+
+# Define MSE and R2 functions
+def MSE(z_data, z_model):
+    return mean_squared_error(z_data, z_model)
+
+def R2(z_data, z_model):
+    return r2_score(z_data, z_model)
+
+# Number of data points
+n = 20
+
+# Create linearly spaced values
+x = np.linspace(0, 1, n)
+y = np.linspace(0, 1, n)
+X, Y = np.meshgrid(x, y)
+z = FrankeFunction(x, y)
+
+# Flatten the arrays
+x_flat = X.flatten()
+y_flat = Y.flatten()
+z_flat = z.flatten()
+
+# Split the data into training and testing sets
+
+
+
+# Perform OLS and plotting MSE and R2 as a function of polynomial degree and the coefficients.
+mse_train, mse_test, r2_train, r2_test, coefficients = [], [], [], [], []
+degrees = [1, 2, 3, 4, 5]
+
+
+for poly_degree in degrees:
+    X = create_design_matrix(x,y, poly_degree)
+    z = FrankeFunction(x, y)
+    X_train, X_test, z_train, z_test = train_test_split(
+    X, z, test_size=0.2, random_state=315)
+    X_train_mean = np.mean(X_train,axis=0)
+    X_train_scaled = X_train - X_train_mean
+    X_test_scaled = X_test - X_train_mean
+    z_scaler = np.mean(z_train) 
+    z_train_scaled = z_train - z_scaler
+    z_test_scaled = z_test - z_scaler
+
+    # Create polynomial features
+ 
+    
+    
+    # Fit the model with matrix inversion
+    beta = inv(X_train_scaled.T @  X_train_scaled) @  X_train_scaled.T @ z_train_scaled
+    
+    # Make predictions on test and training data
+    z_train_pred = X_train_scaled @ beta
+    z_test_pred = X_test_scaled @ beta
+    
+    # Append results
+    mse_train.append(MSE(z_train, z_train_pred))
+    mse_test.append(MSE(z_test, z_test_pred))
+    r2_train.append(R2(z_train, z_train_pred))
+    r2_test.append(R2(z_test, z_test_pred))
+    coefficients.append(beta)
+
+# Print results
+print(f'MSE Train: {mse_train}')
+print(f'MSE Test: {mse_test}')
+print(f'R2 Train: {r2_train}')
+print(f'R2 Test: {r2_test}')
+
+# Plotting MSE
+plt.figure(figsize=(12, 6))
+plt.plot(degrees, mse_train, 'o-', label='Train MSE')
+plt.plot(degrees, mse_test, 'o-', label='Test MSE')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('Mean Squared Error')
+plt.title('MSE vs. Polynomial Degree on unscaled data')
+plt.legend()
+plt.show()
+
+# Plotting R2
+plt.figure(figsize=(12, 6))
+plt.plot(degrees, r2_train, 'o-', label='Train R²')
+plt.plot(degrees, r2_test, 'o-', label='Test R²')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('R² Score')
+plt.title('R² vs. Polynomial Degree on unscaled data')
+plt.legend()
+plt.show()
+
+# Plotting Coefficients
+plt.figure(figsize=(12, 6))
+for i, coef in enumerate(coefficients):
+    plt.plot(np.arange(len(coef)), coef.flatten(), 'o-', label=f'Degree {degrees[i]}')
+plt.xlabel('Coefficient Index')
+plt.ylabel('Coefficient Value')
+plt.title('Coefficients vs. Polynomial Degree on unscaled data')
+plt.legend()
+plt.show()
+
+
+[GPT]
+
+Your current code performs Ordinary Least Squares (OLS) regression, evaluates the model's performance using Mean Squared Error (MSE) and R² metrics, and plots the results. However, you mentioned that the solution should be without scaling, yet the provided code still includes steps for scaling the data.
+
+I'll provide a corrected version of your script where the data is not scaled at any point. This means we'll use the raw feature values for training and testing the model.
+
+### Corrected Script Without Scaling:
+
+```python
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+from numpy.linalg import inv
+
+# Set random seed for reproducibility
+np.random.seed(315)
+
+# Define the Franke Function
+def FrankeFunction(x, y):
+    term1 = 0.75 * np.exp(-((9 * x - 2) ** 2) / 4.0 - ((9 * y - 2) ** 2) / 4.0)
+    term2 = 0.75 * np.exp(-(9 * x + 1) ** 2 / 49.0 - 0.1 * (9 * y + 1))
+    term3 = 0.5 * np.exp(-(9 * x - 7) ** 2 / 4.0 - ((9 * y - 3) ** 2) / 4.0)
+    term4 = -0.2 * np.exp(-(9 * x - 4) ** 2 - (9 * y - 7) ** 2)
+    return term1 + term2 + term3 + term4 + 0.1 * np.random.randn(*x.shape)
+
+# Function to create design matrix
+def create_design_matrix(x, y, degree):
+    num_terms = int((degree + 1) * (degree + 2) / 2)
+    X = np.zeros((len(x), num_terms))
+    idx = 0
+    for i in range(degree + 1):
+        for j in range(degree + 1 - i):
+            X[:, idx] = (x**i) * (y**j)
+            idx += 1
+    return X
+
+# Define MSE and R2 functions
+def MSE(z_data, z_model):
+    return mean_squared_error(z_data, z_model)
+
+def R2(z_data, z_model):
+    return r2_score(z_data, z_model)
+
+# Number of data points
+n = 20
+
+# Create linearly spaced values
+x = np.linspace(0, 1, n)
+y = np.linspace(0, 1, n)
+X, Y = np.meshgrid(x, y)
+z = FrankeFunction(X, Y) # Modify here
+
+# Flatten the arrays
+x_flat = X.flatten()
+y_flat = Y.flatten()
+z_flat = z.flatten()
+
+# Perform OLS and plotting MSE and R2 as a function of polynomial degree and the coefficients.
+mse_train, mse_test, r2_train, r2_test, coefficients = [], [], [], [], []
+degrees = [1, 2, 3, 4, 5]
+
+for poly_degree in degrees:
+    X_design = create_design_matrix(x_flat, y_flat, poly_degree)
+    
+    # Split the data into training and testing sets
+    X_train, X_test, z_train, z_test = train_test_split(
+        X_design, z_flat, test_size=0.2, random_state=315)
+    
+    # Fit the model with matrix inversion
+    beta = inv(X_train.T @ X_train) @ X_train.T @ z_train
+    
+    # Make predictions on test and training data
+    z_train_pred = X_train @ beta
+    z_test_pred = X_test @ beta
+    
+    # Append results
+    mse_train.append(MSE(z_train, z_train_pred))
+    mse_test.append(MSE(z_test, z_test_pred))
+    r2_train.append(R2(z_train, z_train_pred))
+    r2_test.append(R2(z_test, z_test_pred))
+    coefficients.append(beta)
+
+# Print results
+print(f'MSE Train: {mse_train}')
+print(f'MSE Test: {mse_test}')
+print(f'R2 Train: {r2_train}')
+print(f'R2 Test: {r2_test}')
+
+# Plotting MSE
+plt.figure(figsize=(12, 6))
+plt.plot(degrees, mse_train, 'o-', label='Train MSE')
+plt.plot(degrees, mse_test, 'o-', label='Test MSE')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('Mean Squared Error')
+plt.title('MSE vs. Polynomial Degree on unscaled data')
+plt.legend()
+plt.show()
+
+# Plotting R2
+plt.figure(figsize=(12, 6))
+plt.plot(degrees, r2_train, 'o-', label='Train R²')
+plt.plot(degrees, r2_test, 'o-', label='Test R²')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('R² Score')
+plt.title('R² vs. Polynomial Degree on unscaled data')
+plt.legend()
+plt.show()
+
+# Plotting Coefficients
+plt.figure(figsize=(12, 6))
+for i, coef in enumerate(coefficients):
+    plt.plot(np.arange(len(coef)), coef.flatten(), 'o-', label=f'Degree {degrees[i]}')
+plt.xlabel('Coefficient Index')
+plt.ylabel('Coefficient Value')
+plt.title('Coefficients vs. Polynomial Degree on unscaled data')
+plt.legend()
+plt.show()
+```
+
+### Key Changes:
+1. **Franke Function Call:** Used `FrankeFunction(X, Y)` instead of `FrankeFunction(x, y)` to properly create the `z` values from the meshgrid.
+2. **Design Matrix Creation:** The design matrix `X_design` is created before the train-test split.
+3. **Removed Scaling:** All scaling steps (`X_train_scaled`, `X_test_scaled`, `z_train_scaled`, `z_test_scaled`) are removed to ensure the raw data is used.
+
+With these changes, the code should now perform polynomial regression without scaling the data, and you can observe the effects on MSE and R² scores for different polynomial degrees naturally.
+
+
+[Bruker]
+
+i want to have scaling
+
+
+
+[GPT]
+
+Got it! Let's make sure to properly scale both the design matrix and the target variable (`z`) for both training and testing data. I'll revise your code to include normalization (standardization) steps for both the input features (independent variables) and the target variable (dependent variable).
+
+Essentially, we will:
+1. Standardize the features (design matrix) by subtracting the mean and dividing by the standard deviation.
+2. Standardize the target variable by subtracting the mean.
+
+### Revised Script with Scaling:
+
+```python
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+from numpy.linalg import inv
+
+# Set random seed for reproducibility
+np.random.seed(315)
+
+# Define the Franke Function
+def FrankeFunction(x, y):
+    term1 = 0.75 * np.exp(-((9 * x - 2) ** 2) / 4.0 - ((9 * y - 2) ** 2) / 4.0)
+    term2 = 0.75 * np.exp(-(9 * x + 1) ** 2 / 49.0 - 0.1 * (9 * y + 1))
+    term3 = 0.5 * np.exp(-(9 * x - 7) ** 2 / 4.0 - ((9 * y - 3) ** 2) / 4.0)
+    term4 = -0.2 * np.exp(-(9 * x - 4) ** 2 - (9 * y - 7) ** 2)
+    return term1 + term2 + term3 + term4 + 0.1 * np.random.randn(*x.shape)
+
+# Function to create design matrix
+def create_design_matrix(x, y, degree):
+    num_terms = int((degree + 1) * (degree + 2) / 2)
+    X = np.zeros((len(x), num_terms))
+    idx = 0
+    for i in range(degree + 1):
+        for j in range(degree + 1 - i):
+            X[:, idx] = (x**i) * (y**j)
+            idx += 1
+    return X
+
+# Define MSE and R2 functions
+def MSE(z_data, z_model):
+    return mean_squared_error(z_data, z_model)
+
+def R2(z_data, z_model):
+    return r2_score(z_data, z_model)
+
+# Number of data points
+n = 20
+
+# Create linearly spaced values
+x = np.linspace(0, 1, n)
+y = np.linspace(0, 1, n)
+X, Y = np.meshgrid(x, y)
+z = FrankeFunction(X, Y)
+
+# Flatten the arrays
+x_flat = X.flatten()
+y_flat = Y.flatten()
+z_flat = z.flatten()
+
+# Perform OLS and plot MSE and R2 as a function of polynomial degree and the coefficients.
+mse_train, mse_test, r2_train, r2_test, coefficients = [], [], [], [], []
+degrees = [1, 2, 3, 4, 5]
+
+for poly_degree in degrees:
+    X_design = create_design_matrix(x_flat, y_flat, poly_degree)
+    
+    # Split the data into training and testing sets
+    X_train, X_test, z_train, z_test = train_test_split(X_design, z_flat, test_size=0.2, random_state=315)
+    
+    # Scale the design matrices
+    X_train_mean = np.mean(X_train, axis=0)
+    X_train_std = np.std(X_train, axis=0)
+    X_train_scaled = (X_train - X_train_mean) / X_train_std
+    X_test_scaled = (X_test - X_train_mean) / X_train_std
+    
+    # Scale the target variable
+    z_train_mean = np.mean(z_train)
+    z_train_scaled = z_train - z_train_mean
+    z_test_scaled = z_test - z_train_mean
+    
+    # Fit the model with matrix inversion
+    beta = inv(X_train_scaled.T @ X_train_scaled) @ X_train_scaled.T @ z_train_scaled
+    
+    # Make predictions on test and training data
+    z_train_pred_scaled = X_train_scaled @ beta
+    z_test_pred_scaled = X_test_scaled @ beta
+    
+    # Rescale predictions
+    z_train_pred = z_train_pred_scaled + z_train_mean
+    z_test_pred = z_test_pred_scaled + z_train_mean
+    
+    # Append results
+    mse_train.append(MSE(z_train, z_train_pred))
+    mse_test.append(MSE(z_test, z_test_pred))
+    r2_train.append(R2(z_train, z_train_pred))
+    r2_test.append(R2(z_test, z_test_pred))
+    coefficients.append(beta)
+
+# Print results
+print(f'MSE Train: {mse_train}')
+print(f'MSE Test: {mse_test}')
+print(f'R2 Train: {r2_train}')
+print(f'R2 Test: {r2_test}')
+
+# Plotting MSE
+plt.figure(figsize=(12, 6))
+plt.plot(degrees, mse_train, 'o-', label='Train MSE')
+plt.plot(degrees, mse_test, 'o-', label='Test MSE')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('Mean Squared Error')
+plt.title('MSE vs. Polynomial Degree on scaled data')
+plt.legend()
+plt.show()
+
+# Plotting R2
+plt.figure(figsize=(12, 6))
+plt.plot(degrees, r2_train, 'o-', label='Train R²')
+plt.plot(degrees, r2_test, 'o-', label='Test R²')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('R² Score')
+plt.title('R² vs. Polynomial Degree on scaled data')
+plt.legend()
+plt.show()
+
+# Plotting Coefficients
+plt.figure(figsize=(12, 6))
+for i, coef in enumerate(coefficients):
+    plt.plot(np.arange(len(coef)), coef.flatten(), 'o-', label=f'Degree {degrees[i]}')
+plt.xlabel('Coefficient Index')
+plt.ylabel('Coefficient Value')
+plt.title('Coefficients vs. Polynomial Degree on scaled data')
+plt.legend()
+plt.show()
+```
+
+### Key Changes:
+1. **Scaling Design Matrix:**
+   - Compute the mean and standard deviation of the training set design matrix (`X_train_mean`, `X_train_std`).
+   - Scale the training and test design matrices using the training set statistics.
+
+2. **Scaling Target Variable:**
+   - Compute the mean of the training set target variable (`z_train_mean`).
+   - Scale the training and test target variables by subtracting their mean.
+
+3. **Rescaling Predictions:**
+   - Add the mean of the training set target variable to the scaled predictions to obtain the actual predictions.
+
+4. **Output and Plotting:**
+   - Includes the code for printing the MSE and R² values, and plotting the corresponding graphs for the metrics and coefficients.
+
+This setup ensures that the features and target variables are properly scaled and that the model's coefficients and predictions are appropriately adjusted.
+
+
+[Bruker]
+
+just want to center values by subtracting the mean
+
+
+[GPT]
+
+Understood. Here, we will only center the values by subtracting the mean without scaling by standard deviation. This will ensure that each feature in your design matrix and the target variable are centered around zero.
+
+Here is the revised code performing the centering only:
+
+```python
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+from numpy.linalg import inv
+
+# Set random seed for reproducibility
+np.random.seed(315)
+
+# Define the Franke Function
+def FrankeFunction(x, y):
+    term1 = 0.75 * np.exp(-((9 * x - 2) ** 2) / 4.0 - ((9 * y - 2) ** 2) / 4.0)
+    term2 = 0.75 * np.exp(-(9 * x + 1) ** 2 / 49.0 - 0.1 * (9 * y + 1))
+    term3 = 0.5 * np.exp(-(9 * x - 7) ** 2 / 4.0 - ((9 * y - 3) ** 2) / 4.0)
+    term4 = -0.2 * np.exp(-(9 * x - 4) ** 2 - (9 * y - 7) ** 2)
+    return term1 + term2 + term3 + term4 + 0.1 * np.random.randn(*x.shape)
+
+# Function to create design matrix
+def create_design_matrix(x, y, degree):
+    num_terms = int((degree + 1) * (degree + 2) / 2)
+    X = np.zeros((len(x), num_terms))
+    idx = 0
+    for i in range(degree + 1):
+        for j in range(degree + 1 - i):
+            X[:, idx] = (x**i) * (y**j)
+            idx += 1
+    return X
+
+# Define MSE and R2 functions
+def MSE(z_data, z_model):
+    return mean_squared_error(z_data, z_model)
+
+def R2(z_data, z_model):
+    return r2_score(z_data, z_model)
+
+# Number of data points
+n = 20
+
+# Create linearly spaced values
+x = np.linspace(0, 1, n)
+y = np.linspace(0, 1, n)
+X, Y = np.meshgrid(x, y)
+z = FrankeFunction(X, Y)
+
+# Flatten the arrays
+x_flat = X.flatten()
+y_flat = Y.flatten()
+z_flat = z.flatten()
+
+# Perform OLS and plot MSE and R2 as a function of polynomial degree and the coefficients.
+mse_train, mse_test, r2_train, r2_test, coefficients = [], [], [], [], []
+degrees = [1, 2, 3, 4, 5]
+
+for poly_degree in degrees:
+    X_design = create_design_matrix(x_flat, y_flat, poly_degree)
+    
+    # Split the data into training and testing sets
+    X_train, X_test, z_train, z_test = train_test_split(X_design, z_flat, test_size=0.2, random_state=315)
+    
+    # Center the design matrices
+    X_train_mean = np.mean(X_train, axis=0)
+    X_train_centered = X_train - X_train_mean
+    X_test_centered = X_test - X_train_mean
+    
+    # Center the target variable
+    z_train_mean = np.mean(z_train)
+    z_train_centered = z_train - z_train_mean
+    z_test_centered = z_test - z_train_mean
+    
+    # Fit the model with matrix inversion
+    beta = inv(X_train_centered.T @ X_train_centered) @ X_train_centered.T @ z_train_centered
+    
+    # Make predictions on test and training data
+    z_train_pred_centered = X_train_centered @ beta
+    z_test_pred_centered = X_test_centered @ beta
+    
+    # Rescale predictions (by adding back the mean)
+    z_train_pred = z_train_pred_centered + z_train_mean
+    z_test_pred = z_test_pred_centered + z_train_mean
+    
+    # Append results
+    mse_train.append(MSE(z_train, z_train_pred))
+    mse_test.append(MSE(z_test, z_test_pred))
+    r2_train.append(R2(z_train, z_train_pred))
+    r2_test.append(R2(z_test, z_test_pred))
+    coefficients.append(beta)
+
+# Print results
+print(f'MSE Train: {mse_train}')
+print(f'MSE Test: {mse_test}')
+print(f'R2 Train: {r2_train}')
+print(f'R2 Test: {r2_test}')
+
+# Plotting MSE
+plt.figure(figsize=(12, 6))
+plt.plot(degrees, mse_train, 'o-', label='Train MSE')
+plt.plot(degrees, mse_test, 'o-', label='Test MSE')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('Mean Squared Error')
+plt.title('MSE vs. Polynomial Degree on centered data')
+plt.legend()
+plt.show()
+
+# Plotting R2
+plt.figure(figsize=(12, 6))
+plt.plot(degrees, r2_train, 'o-', label='Train R²')
+plt.plot(degrees, r2_test, 'o-', label='Test R²')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('R² Score')
+plt.title('R² vs. Polynomial Degree on centered data')
+plt.legend()
+plt.show()
+
+# Plotting Coefficients
+plt.figure(figsize=(12, 6))
+for i, coef in enumerate(coefficients):
+    plt.plot(np.arange(len(coef)), coef.flatten(), 'o-', label=f'Degree {degrees[i]}')
+plt.xlabel('Coefficient Index')
+plt.ylabel('Coefficient Value')
+plt.title('Coefficients vs. Polynomial Degree on centered data')
+plt.legend()
+plt.show()
+```
+
+### Key Changes:
+1. **Centering Design Matrix:**
+   - Compute the mean of the training set design matrix (`X_train_mean`).
+   - Center the training and test design matrices by subtracting their mean.
+
+2. **Centering Target Variable:**
+   - Compute the mean of the training set target variable (`z_train_mean`).
+   - Center the training and test target variables by subtracting their mean.
+
+3. **Rescaling Predictions:**
+   - Add the mean of the training set target variable to the centered predictions to obtain the actual predictions.
+
+This approach ensures that your inputs and outputs are centered around zero, which can help stabilize the numerical computations involved in the regression.
+
+
+[Bruker]
+
+#solution a) without scaling
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+from numpy.linalg import inv
+
+
+# Load the terrain data
+terrain1 = imread('SRTM_data_Norway_2.tif')
+n_rows, n_cols = terrain1.shape
+
+# Create linearly spaced values
+x = np.linspace(0, 1, n_cols)
+y = np.linspace(0, 1, n_rows)
+
+# Create meshgrid for the entire dataset
+X, Y = np.meshgrid(x, y)
+x_flat = X.flatten()
+y_flat = Y.flatten()
+z_flat = terrain1.flatten()
+
+# Function to create design matrix
+def create_design_matrix(x, y, degree):
+    num_terms = int((degree + 1)*(degree + 2)/2)
+    X = np.zeros((len(x), num_terms))
+    idx = 0
+    for i in range(degree + 1):
+        for j in range(degree + 1 - i):
+            X[:, idx] = (x**i) * (y**j)
+            idx += 1
+    return X
+
+# Define MSE and R2 functions
+def MSE(z_data, z_model):
+    return mean_squared_error(z_data, z_model)
+
+def R2(z_data, z_model):
+    return r2_score(z_data, z_model)
+
+
+
+# Split the data into training and testing sets
+x_train, x_test, y_train, y_test, z_train, z_test = train_test_split(
+    x_flat, y_flat, z_flat, test_size=0.2, random_state=315
+)
+
+# Perform OLS and plotting MSE and R2 as a function of polynomial degree and the coefficients.
+mse_train, mse_test, r2_train, r2_test, coefficients = [], [], [], [], []
+degrees = [1, 2, 3, 4, 5]
+testmatrix1 = create_design_matrix(x_train, y_train, 3)
+print("design matrix without scaling",testmatrix1)
+for poly_degree in degrees:
+    # Create polynomial features
+    XY_train = create_design_matrix(x_train, y_train, poly_degree)
+    XY_test = create_design_matrix(x_test, y_test, poly_degree)
+    
+    # Fit the model with matrix inversion
+    beta = inv(XY_train.T @ XY_train) @ XY_train.T @ z_train
+    
+    # Make predictions on test and training data
+    z_train_pred = XY_train @ beta
+    z_test_pred = XY_test @ beta
+    
+    # Append results
+    mse_train.append(MSE(z_train, z_train_pred))
+    mse_test.append(MSE(z_test, z_test_pred))
+    r2_train.append(R2(z_train, z_train_pred))
+    r2_test.append(R2(z_test, z_test_pred))
+    coefficients.append(beta)
+
+# Print results
+print(f'MSE Train: {mse_train}')
+print(f'MSE Test: {mse_test}')
+print(f'R2 Train: {r2_train}')
+print(f'R2 Test: {r2_test}')
+
+# Plotting MSE
+plt.figure(figsize=(12, 6))
+plt.plot(degrees, mse_train, 'o-', label='Train MSE')
+plt.plot(degrees, mse_test, 'o-', label='Test MSE')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('Mean Squared Error')
+plt.title('MSE vs. Polynomial Degree on unscaled data')
+plt.legend()
+plt.show()
+
+# Plotting R2
+plt.figure(figsize=(12, 6))
+plt.plot(degrees, r2_train, 'o-', label='Train R²')
+plt.plot(degrees, r2_test, 'o-', label='Test R²')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('R² Score')
+plt.title('R² vs. Polynomial Degree on unscaled data')
+plt.legend()
+plt.show()
+
+# Plotting Coefficients
+plt.figure(figsize=(12, 6))
+for i, coef in enumerate(coefficients):
+    plt.plot(np.arange(len(coef)), coef.flatten(), 'o-', label=f'Degree {degrees[i]}')
+plt.xlabel('Coefficient Index')
+plt.ylabel('Coefficient Value')
+plt.title('Coefficients vs. Polynomial Degree on unscaled data')
+plt.legend()
+plt.show()
+
+
+[GPT]
+
+Your code looks well-structured for performing polynomial regression on terrain data without scaling. To create the solution with centering (subtracting the mean) as requested earlier while maintaining the existing structure, we can make minimal edits to add the centering steps.
+
+Here is the adjusted version of your solution:
+
+```python
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+from numpy.linalg import inv
+from imageio import imread
+
+# Load the terrain data
+terrain1 = imread('SRTM_data_Norway_2.tif')
+n_rows, n_cols = terrain1.shape
+
+# Create linearly spaced values
+x = np.linspace(0, 1, n_cols)
+y = np.linspace(0, 1, n_rows)
+
+# Create meshgrid for the entire dataset
+X, Y = np.meshgrid(x, y)
+x_flat = X.flatten()
+y_flat = Y.flatten()
+z_flat = terrain1.flatten()
+
+# Function to create design matrix
+def create_design_matrix(x, y, degree):
+    num_terms = int((degree + 1)*(degree + 2)/2)
+    X = np.zeros((len(x), num_terms))
+    idx = 0
+    for i in range(degree + 1):
+        for j in range(degree + 1 - i):
+            X[:, idx] = (x**i) * (y**j)
+            idx += 1
+    return X
+
+# Define MSE and R2 functions
+def MSE(z_data, z_model):
+    return mean_squared_error(z_data, z_model)
+
+def R2(z_data, z_model):
+    return r2_score(z_data, z_model)
+
+# Split the data into training and testing sets
+x_train, x_test, y_train, y_test, z_train, z_test = train_test_split(
+    x_flat, y_flat, z_flat, test_size=0.2, random_state=315
+)
+
+# Center the training data (mean subtraction)
+x_train_mean, y_train_mean, z_train_mean = np.mean(x_train), np.mean(y_train), np.mean(z_train)
+x_train_centered, y_train_centered, z_train_centered = x_train - x_train_mean, y_train - y_train_mean, z_train - z_train_mean
+x_test_centered, y_test_centered, z_test_centered = x_test - x_train_mean, y_test - y_train_mean, z_test - z_train_mean
+
+# Perform OLS and plotting MSE and R2 as a function of polynomial degree and the coefficients.
+mse_train, mse_test, r2_train, r2_test, coefficients = [], [], [], [], []
+degrees = [1, 2, 3, 4, 5]
+
+for poly_degree in degrees:
+    # Create polynomial features
+    XY_train_centered = create_design_matrix(x_train_centered, y_train_centered, poly_degree)
+    XY_test_centered = create_design_matrix(x_test_centered, y_test_centered, poly_degree)
+    
+    # Fit the model with matrix inversion
+    beta = inv(XY_train_centered.T @ XY_train_centered) @ XY_train_centered.T @ z_train_centered
+    
+    # Make predictions on test and training data
+    z_train_pred_centered = XY_train_centered @ beta
+    z_test_pred_centered = XY_test_centered @ beta
+    
+    # Rescale predictions
+    z_train_pred = z_train_pred_centered + z_train_mean
+    z_test_pred = z_test_pred_centered + z_train_mean
+    
+    # Append results
+    mse_train.append(MSE(z_train, z_train_pred))
+    mse_test.append(MSE(z_test, z_test_pred))
+    r2_train.append(R2(z_train, z_train_pred))
+    r2_test.append(R2(z_test, z_test_pred))
+    coefficients.append(beta)
+
+# Print results
+print(f'MSE Train: {mse_train}')
+print(f'MSE Test: {mse_test}')
+print(f'R2 Train: {r2_train}')
+print(f'R2 Test: {r2_test}')
+
+# Plotting MSE
+plt.figure(figsize=(12, 6))
+plt.plot(degrees, mse_train, 'o-', label='Train MSE')
+plt.plot(degrees, mse_test, 'o-', label='Test MSE')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('Mean Squared Error')
+plt.title('MSE vs. Polynomial Degree on centered data')
+plt.legend()
+plt.show()
+
+# Plotting R2
+plt.figure(figsize=(12, 6))
+plt.plot(degrees, r2_train, 'o-', label='Train R²')
+plt.plot(degrees, r2_test, 'o-', label='Test R²')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('R² Score')
+plt.title('R² vs. Polynomial Degree on centered data')
+plt.legend()
+plt.show()
+
+# Plotting Coefficients
+plt.figure(figsize=(12, 6))
+for i, coef in enumerate(coefficients):
+    plt.plot(np.arange(len(coef)), coef.flatten(), 'o-', label=f'Degree {degrees[i]}')
+plt.xlabel('Coefficient Index')
+plt.ylabel('Coefficient Value')
+plt.title('Coefficients vs. Polynomial Degree on centered data')
+plt.legend()
+plt.show()
+```
+
+### Key Changes:
+1. **Centered Training and Test Data:**
+   - Calculated mean (`x_train_mean`, `y_train_mean`, `z_train_mean`) from the training set.
+   - Centered both the training and testing sets using these means.
+
+2. **Adjusted Predictions:**
+   - Rescaled predictions from centered values by adding back the training set mean (`z_train_mean`).
+
+This revision centers the values by subtracting their mean before applying the polynomial regression. It can help mitigate the effects of outliers and improve the stability of the regression coefficients.
+
+
+[Bruker]
+
+why is the MSE between 24000 and 16000
+
+
+[GPT]
+
+The Mean Squared Error (MSE) values between 16,000 and 24,000 for your terrain data regression might seem high at first glance. Here's a breakdown of potential reasons for these high MSE values:
+
+1. **Data Magnitude:**
+   - If the actual values in `terrain1` (the height values from the terrain data) are large, the MSE will naturally be larger. This is because the MSE is computed as the mean of the squared differences between predicted and actual values, and larger values lead to larger differences.
+
+2. **Variance in Data:**
+   - Terrain data often has a large variance due to significant changes in elevation. This natural variance can lead to higher error metrics as the model may struggle to fit all variations accurately.
+
+3. **Polynomial Regression Degree:**
+   - You might be underfitting or overfitting the data with polynomial degrees ranging from 1 to 5. Higher degrees might model the noise instead of the true underlying pattern, and lower degrees might not capture the complexity of the terrain.
+
+4. **Noise in Data:**
+   - The terrain data might contain noise or artifacts that affect the MSE. If the data is not perfectly clean, even the best fit will have a high error margin.
+
+5. **Centering and Scaling:**
+   - Although you've centered your data, not scaling by the standard deviation might not mitigate the effects of very high or very low values effectively. While centering helps with numerical stability, scaling can further standardize the range of data values.
+
+To provide more insight, let's output the summary statistics of your `terrain1` data, such as mean and standard deviation, to understand the data's magnitude.
+
+```python
+print(f"Mean of terrain data: {np.mean(terrain1)}")
+print(f"Standard Deviation of terrain data: {np.std(terrain1)}")
+
+print("Sample terrain data values (flattened):", z_flat[:5])  # Display a small sample of flattened terrain data
+```
+
+These statistics will help understand why your MSE values are in that range. Also, visually inspecting the terrain data (histogram or basic plots) might provide more intuition about its distribution.
+
+To further assess the model's performance, you might consider additional metrics like the Median Absolute Error (MedAE) or visualizations comparing the predicted and actual elevations. Additionally, exploring more polynomial degrees or regularization techniques (like Ridge regression) could improve the fits and consequently reduce the MSE.
+
+
+[Bruker]
+
+what about min max scaling?
+
+
+[GPT]
+
+Min-Max scaling (also known as normalization) rescales the feature values to a fixed range, typically [0, 1]. This can sometimes be advantageous in regression problems, especially when the data features have very different ranges, as it can improve the numerical stability and performance of machine learning models.
+
+Let's incorporate Min-Max scaling into your terrain data regression process. First, we need to define a function for scaling the data, and then modify the data processing steps accordingly.
+
+Here's how you can adjust your code to include Min-Max scaling:
+
+```python
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+from numpy.linalg import inv
+from imageio import imread
+
+# Load the terrain data
+terrain1 = imread('SRTM_data_Norway_2.tif')
+n_rows, n_cols = terrain1.shape
+
+# Create linearly spaced values
+x = np.linspace(0, 1, n_cols)
+y = np.linspace(0, 1, n_rows)
+
+# Create meshgrid for the entire dataset
+X, Y = np.meshgrid(x, y)
+x_flat = X.flatten()
+y_flat = Y.flatten()
+z_flat = terrain1.flatten()
+
+# Function to create design matrix
+def create_design_matrix(x, y, degree):
+    num_terms = int((degree + 1)*(degree + 2)/2)
+    X = np.zeros((len(x), num_terms))
+    idx = 0
+    for i in range(degree + 1):
+        for j in range(degree + 1 - i):
+            X[:, idx] = (x**i) * (y**j)
+            idx += 1
+    return X
+
+# Define MSE and R2 functions
+def MSE(z_data, z_model):
+    return mean_squared_error(z_data, z_model)
+
+def R2(z_data, z_model):
+    return r2_score(z_data, z_model)
+
+# Function to perform Min-Max scaling
+def min_max_scale(data):
+    min_val = np.min(data)
+    max_val = np.max(data)
+    return (data - min_val) / (max_val - min_val), min_val, max_val
+
+# Split the data into training and testing sets
+x_train, x_test, y_train, y_test, z_train, z_test = train_test_split(
+    x_flat, y_flat, z_flat, test_size=0.2, random_state=315
+)
+
+# Min-Max scaling on training data
+x_train_scaled, x_min, x_max = min_max_scale(x_train)
+y_train_scaled, y_min, y_max = min_max_scale(y_train)
+z_train_scaled, z_min, z_max = min_max_scale(z_train)
+
+# Scale test data using training data min and max values
+x_test_scaled = (x_test - x_min) / (x_max - x_min)
+y_test_scaled = (y_test - y_min) / (y_max - y_min)
+z_test_scaled = (z_test - z_min) / (z_max - z_min)
+
+# Perform OLS and plotting MSE and R2 as a function of polynomial degree and the coefficients.
+mse_train, mse_test, r2_train, r2_test, coefficients = [], [], [], [], []
+degrees = [1, 2, 3, 4, 5]
+
+for poly_degree in degrees:
+    # Create polynomial features
+    XY_train_scaled = create_design_matrix(x_train_scaled, y_train_scaled, poly_degree)
+    XY_test_scaled = create_design_matrix(x_test_scaled, y_test_scaled, poly_degree)
+    
+    # Fit the model with matrix inversion
+    beta = inv(XY_train_scaled.T @ XY_train_scaled) @ XY_train_scaled.T @ z_train_scaled
+    
+    # Make predictions on test and training data
+    z_train_pred_scaled = XY_train_scaled @ beta
+    z_test_pred_scaled = XY_test_scaled @ beta
+    
+    # Rescale predictions back to original ranges
+    z_train_pred = z_train_pred_scaled * (z_max - z_min) + z_min
+    z_test_pred = z_test_pred_scaled * (z_max - z_min) + z_min
+    
+    # Append results
+    mse_train.append(MSE(z_train, z_train_pred))
+    mse_test.append(MSE(z_test, z_test_pred))
+    r2_train.append(R2(z_train, z_train_pred))
+    r2_test.append(R2(z_test, z_test_pred))
+    coefficients.append(beta)
+
+# Print results
+print(f'MSE Train: {mse_train}')
+print(f'MSE Test: {mse_test}')
+print(f'R2 Train: {r2_train}')
+print(f'R2 Test: {r2_test}')
+
+# Plotting MSE
+plt.figure(figsize=(12, 6))
+plt.plot(degrees, mse_train, 'o-', label='Train MSE')
+plt.plot(degrees, mse_test, 'o-', label='Test MSE')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('Mean Squared Error')
+plt.title('MSE vs. Polynomial Degree on Min-Max scaled data')
+plt.legend()
+plt.show()
+
+# Plotting R2
+plt.figure(figsize=(12, 6))
+plt.plot(degrees, r2_train, 'o-', label='Train R²')
+plt.plot(degrees, r2_test, 'o-', label='Test R²')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('R² Score')
+plt.title('R² vs. Polynomial Degree on Min-Max scaled data')
+plt.legend()
+plt.show()
+
+# Plotting Coefficients
+plt.figure(figsize=(12, 6))
+for i, coef in enumerate(coefficients):
+    plt.plot(np.arange(len(coef)), coef.flatten(), 'o-', label=f'Degree {degrees[i]}')
+plt.xlabel('Coefficient Index')
+plt.ylabel('Coefficient Value')
+plt.title('Coefficients vs. Polynomial Degree on Min-Max scaled data')
+plt.legend()
+plt.show()
+```
+
+### Key Changes:
+1. **Min-Max Scaling Function:**
+   - Added `min_max_scale` function to normalize data between its minimum and maximum values.
+
+2. **Scale Training and Test Data:**
+   - Scaled `x_train`, `y_train`, and `z_train` using Min-Max scaling.
+   - Scaled `x_test`, `y_test`, and `z_test` using the training data’s min and max values to ensure the test data is on the same scale.
+
+3. **Rescale Predictions:**
+   - Converted the predictions (`z_train_pred_scaled` and `z_test_pred_scaled`) back to the original scale by applying the inverse of the Min-Max scaling.
+
+By including Min-Max scaling, we might see improved numerical stability and performance. The MSE values should be more interpretable and smaller than before since the data is now on a standard scale. Note the importance of interpreting MSE in the context of the original data range to ensure an accurate understanding of the model's performance.
+
+
+[Bruker]
+
+what if you select out random points from the data
+
+
+[GPT]
+
+If you want to select random points from the terrain data instead of using the entire dataset, you can modify your approach to randomly sample a subset of points. This can help in managing computational load and potentially enhancing model performance by focusing on a representative subset of the data. This approach can also be useful for cross-validation or if you want to build quick prototypes.
+
+Here’s how you can update your process to select random points from the data and perform regression:
+
+1. **Randomly Sample Points:**
+   - Randomly select indices from your flattened terrain data arrays.
+
+2. **Perform Polynomial Regression:**
+   - Continue with the polynomial regression using the sampled points, followed by Min-Max scaling as suggested.
+
+Here's a modified version of your code to include random sampling:
+
+```python
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+from numpy.linalg import inv
+from imageio import imread
+
+# Load the terrain data
+terrain1 = imread('SRTM_data_Norway_2.tif')
+n_rows, n_cols = terrain1.shape
+
+# Create linearly spaced values
+x = np.linspace(0, 1, n_cols)
+y = np.linspace(0, 1, n_rows)
+
+# Create meshgrid for the entire dataset
+X, Y = np.meshgrid(x, y)
+x_flat = X.flatten()
+y_flat = Y.flatten()
+z_flat = terrain1.flatten()
+
+# Function to create design matrix
+def create_design_matrix(x, y, degree):
+    num_terms = int((degree + 1)*(degree + 2)/2)
+    X = np.zeros((len(x), num_terms))
+    idx = 0
+    for i in range(degree + 1):
+        for j in range(degree + 1 - i):
+            X[:, idx] = (x**i) * (y**j)
+            idx += 1
+    return X
+
+# Define MSE and R2 functions
+def MSE(z_data, z_model):
+    return mean_squared_error(z_data, z_model)
+
+def R2(z_data, z_model):
+    return r2_score(z_data, z_model)
+
+# Function to perform Min-Max scaling
+def min_max_scale(data):
+    min_val = np.min(data)
+    max_val = np.max(data)
+    return (data - min_val) / (max_val - min_val), min_val, max_val
+
+# Randomly sample a subset of points from the terrain data
+num_samples = 10000  # Adjust the number of samples based on memory and computational limits
+indices = np.random.choice(len(x_flat), num_samples, replace=False)
+x_sampled = x_flat[indices]
+y_sampled = y_flat[indices]
+z_sampled = z_flat[indices]
+
+# Split the sampled data into training and testing sets
+x_train, x_test, y_train, y_test, z_train, z_test = train_test_split(
+    x_sampled, y_sampled, z_sampled, test_size=0.2, random_state=315
+)
+
+# Min-Max scaling on training data
+x_train_scaled, x_min, x_max = min_max_scale(x_train)
+y_train_scaled, y_min, y_max = min_max_scale(y_train)
+z_train_scaled, z_min, z_max = min_max_scale(z_train)
+
+# Scale test data using training data min and max values
+x_test_scaled = (x_test - x_min) / (x_max - x_min)
+y_test_scaled = (y_test - y_min) / (y_max - y_min)
+z_test_scaled = (z_test - z_min) / (z_max - z_min)
+
+# Perform OLS and plotting MSE and R2 as a function of polynomial degree and the coefficients.
+mse_train, mse_test, r2_train, r2_test, coefficients = [], [], [], [], []
+degrees = [1, 2, 3, 4, 5]
+
+for poly_degree in degrees:
+    # Create polynomial features
+    XY_train_scaled = create_design_matrix(x_train_scaled, y_train_scaled, poly_degree)
+    XY_test_scaled = create_design_matrix(x_test_scaled, y_test_scaled, poly_degree)
+    
+    # Fit the model with matrix inversion
+    beta = inv(XY_train_scaled.T @ XY_train_scaled) @ XY_train_scaled.T @ z_train_scaled
+    
+    # Make predictions on test and training data
+    z_train_pred_scaled = XY_train_scaled @ beta
+    z_test_pred_scaled = XY_test_scaled @ beta
+    
+    # Rescale predictions back to original ranges
+    z_train_pred = z_train_pred_scaled * (z_max - z_min) + z_min
+    z_test_pred = z_test_pred_scaled * (z_max - z_min) + z_min
+    
+    # Append results
+    mse_train.append(MSE(z_train, z_train_pred))
+    mse_test.append(MSE(z, z_test_pred))
+    r2_train.append(R2(z_train, z_train_pred))
+    r2_test.append(R2(z_test, z_test_pred))
+    coefficients.append(beta)
+
+# Print results
+print(f'MSE Train: {mse_train}')
+print(f'MSE Test: {mse_test}')
+print(f'R2 Train: {r2_train}')
+print(f'R2 Test: {r2_test}')
+
+# Plotting MSE
+plt.figure(figsize=(12, 6))
+plt.plot(degrees, mse_train, 'o-', label='Train MSE')
+plt.plot(degrees, mse_test, 'o-', label='Test MSE')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('Mean Squared Error')
+plt.title('MSE vs. Polynomial Degree on Min-Max scaled sample data')
+plt.legend()
+plt.show()
+
+# Plotting R2
+plt.figure(figsize=(12, 6))
+plt.plot(degrees, r2_train, 'o-', label='Train R²')
+plt.plot(degrees, r2_test, 'o-', label='Test R²')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('R² Score')
+plt.title('R² vs. Polynomial Degree on Min-Max scaled sample data')
+plt.legend()
+plt.show()
+
+# Plotting Coefficients
+plt.figure(figsize=(12, 6))
+for i, coef in enumerate(coefficients):
+    plt.plot(np.arange(len(coef)), coef.flatten(), 'o-', label=f'Degree {degrees[i]}')
+plt.xlabel('Coefficient Index')
+plt.ylabel('Coefficient Value')
+plt.title('Coefficients vs. Polynomial Degree on Min-Max scaled sample data')
+plt.legend()
+plt.show()
+```
+
+### Key Changes:
+1. **Random Sampling:**
+   - Used `np.random.choice` to randomly sample a subset of points from your flattened terrain data arrays (`x_flat`, `y_flat`, `z_flat`).
+
+2. **Split Sampled Data:**
+   - Split the sampled subset into training and testing sets.
+
+3. **Continue with Min-Max Scaling and Regression:**
+   - Applied the same Min-Max scaling and polynomial regression approach as before to the sampled data.
+
+By reducing the data size through random sampling, you can manage computational resources better and still get a good estimate of model performance. This approach is especially useful for large datasets where processing the entire dataset might be impractical.
+
+
+[Bruker]
+
+from sklearn.linear_model import Lasso
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Define constants and initialize containers
+Maxpolydegree = 5
+nlambdas = 5
+lambdas = np.logspace(-4, 0, nlambdas)
+
+Error_train_lasso = np.zeros((Maxpolydegree, nlambdas))
+Score_train_lasso = np.zeros((Maxpolydegree, nlambdas))
+Error_test_lasso = np.zeros((Maxpolydegree, nlambdas))
+Score_test_lasso = np.zeros((Maxpolydegree, nlambdas))
+
+num_coefficients = int((Maxpolydegree + 1)*(Maxpolydegree + 2)/2)
+betas_lasso = np.zeros((Maxpolydegree, nlambdas, num_coefficients))
+
+for degree in range(1, Maxpolydegree + 1):
+    X_design_train = create_design_matrix(x_train, y_train, degree)
+    X_design_test = create_design_matrix(x_test, y_test, degree)
+
+    for i, lmbda in enumerate(lambdas):
+        lasso = Lasso(alpha=lmbda, fit_intercept=False, max_iter=10000)
+        lasso.fit(X_design_train, z_train)
+        beta_lasso = lasso.coef_
+        
+        z_est_train_lasso = lasso.predict(X_design_train)
+        z_est_test_lasso = lasso.predict(X_design_test)
+        
+        Error_train_lasso[degree-1, i] = MSE(z_train, z_est_train_lasso)
+        Score_train_lasso[degree-1, i] = R2(z_train, z_est_train_lasso)
+        Error_test_lasso[degree-1, i] = MSE(z_test, z_est_test_lasso)
+        Score_test_lasso[degree-1, i] = R2(z_test, z_est_test_lasso)
+        
+        betas_lasso[degree-1, i, :beta_lasso.shape[0]] = beta_lasso
+
+# Plotting MSE for LASSO
+plt.figure(figsize=(12, 6))
+for i, lmbda in enumerate(lambdas):
+    plt.plot(range(1, Maxpolydegree + 1), Error_train_lasso[:, i], 'o-', label=f'Train MSE, Lambda={lmbda:.4f}')
+    plt.plot(range(1, Maxpolydegree + 1), Error_test_lasso[:, i], 'o-', linestyle='--', label=f'Test MSE, Lambda={lmbda:.4f}')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('Mean Squared Error')
+plt.title('MSE vs. Polynomial Degree for different Lambda values (Lasso Regression)')
+plt.legend()
+plt.show()
+
+# Plotting R² for LASSO
+plt.figure(figsize=(12, 6))
+for i, lmbda in enumerate(lambdas):
+    plt.plot(range(1, Maxpolydegree + 1), Score_train_lasso[:, i], 'o-', label=f'Train R², Lambda={lmbda:.4f}')
+    plt.plot(range(1, Maxpolydegree + 1), Score_test_lasso[:, i], 'o-', linestyle='--', label=f'Test R², Lambda={lmbda:.4f}')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('R² Score')
+plt.title('R² vs. Polynomial Degree for different Lambda values (Lasso Regression)')
+plt.legend()
+plt.show()
+
+
+[GPT]
+
+To integrate Lasso regression and analyze its performance with different polynomial degrees and regularization parameters (λ), we can follow the same random sampling and Min-Max scaling approach. We will then apply Lasso regression to the sampled and scaled data, and plot the Mean Squared Error (MSE) and R² metrics for different polynomial degrees and lambda values.
+
+Here is the complete code, including the Min-Max scaling step and random sampling:
+
+```python
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+from sklearn.linear_model import Lasso
+from imageio import imread
+
+# Load the terrain data
+terrain1 = imread('SRTM_data_Norway_2.tif')
+n_rows, n_cols = terrain1.shape
+
+# Create linearly spaced values
+x = np.linspace(0, 1, n_cols)
+y = np.linspace(0, 1, n_rows)
+
+# Create meshgrid for the entire dataset
+X, Y = np.meshgrid(x, y)
+x_flat = X.flatten()
+y_flat = Y.flatten()
+z_flat = terrain1.flatten()
+
+# Define functions for design matrix, scaling, MSE, and R2
+def create_design_matrix(x, y, degree):
+    num_terms = int((degree + 1)*(degree + 2)/2)
+    X = np.zeros((len(x), num_terms))
+    idx = 0
+    for i in range(degree + 1):
+        for j in range(degree + 1 - i):
+            X[:, idx] = (x ** i) * (y ** j)
+            idx += 1
+    return X
+
+def min_max_scale(data):
+    min_val = np.min(data)
+    max_val = np.max(data)
+    return (data - min_val) / (max_val - min_val), min_val, max_val
+
+def MSE(z_data, z_model):
+    return mean_squared_error(z_data, z_model)
+
+def R2(z_data, z_model):
+    return r2_score(z_data, z_model)
+
+# Randomly sample a subset of points from the terrain data
+num_samples = 10000  # Adjust the number of samples based on memory and computational limits
+indices = np.random.choice(len(x_flat), num_samples, replace=False)
+x_sampled = x_flat[indices]
+y_sampled = y_flat[indices]
+z_sampled = z_flat[indices]
+
+# Split the sampled data into training and testing sets
+x_train, x_test, y_train, y_test, z_train, z_test = train_test_split(
+    x_sampled, y_sampled, z_sampled, test_size=0.2, random_state=315
+)
+
+# Min-Max scaling on training data
+x_train_scaled, x_min, x_max = min_max_scale(x_train)
+y_train_scaled, y_min, y_max = min_max_scale(y_train)
+z_train_scaled, z_min, z_max = min_max_scale(z_train)
+
+# Scale test data using training data min and max values
+x_test_scaled = (x_test - x_min) / (x_max - x_min)
+y_test_scaled = (y_test - y_min) / (y_max - y_min)
+z_test_scaled = (z_test - z_min) / (z_max - z_min)
+
+# Define constants and initialize containers
+Maxpolydegree = 5
+nlambdas = 5
+lambdas = np.logspace(-4, 0, nlambdas)
+
+Error_train_lasso = np.zeros((Maxpolydegree, nlambdas))
+Score_train_lasso = np.zeros((Maxpolydegree, nlambdas))
+Error_test_lasso = np.zeros((Maxpolydegree, nlambdas))
+Score_test_lasso = np.zeros((Maxpolydegree, nlambdas))
+
+num_coefficients = int((Maxpolydegree + 1) * (Maxpolydegree + 2) / 2)
+betas_lasso = np.zeros((Maxpolydegree, nlambdas, num_coefficients))
+
+for degree in range(1, Maxpolydegree + 1):
+    X_design_train = create_design_matrix(x_train_scaled, y_train_scaled, degree)
+    X_design_test = create_design_matrix(x_test_scaled, y_test_scaled, degree)
+
+    for i, lmbda in enumerate(lambdas):
+        lasso = Lasso(alpha=lmbda, fit_intercept=False, max_iter=10000)
+        lasso.fit(X_design_train, z_train_scaled)
+        beta_lasso = lasso.coef_
+
+        z_est_train_lasso_scaled = lasso.predict(X_design_train)
+        z_est_test_lasso_scaled = lasso.predict(X_design_test)
+
+        # Rescale predictions back to original ranges
+        z_est_train_lasso = z_est_train_lasso_scaled * (z_max - z_min) + z_min
+        z_est_test_lasso = z_est_test_lasso_scaled * (z_max - z_min) + z_min
+
+        Error_train_lasso[degree - 1, i] = MSE(z_train, z_est_train_lasso)
+        Score_train_lasso[degree - 1, i] = R2(z_train, z_est_train_lasso)
+        Error_test_lasso[degree - 1, i] = MSE(z_test, z_est_test_lasso)
+        Score_test_lasso[degree - 1, i] = R2(z_test, z_est_test_lasso)
+
+        betas_lasso[degree - 1, i, :beta_lasso.shape[0]] = beta_lasso
+
+# Plotting MSE for LASSO
+plt.figure(figsize=(12, 6))
+for i, lmbda in enumerate(lambdas):
+    plt.plot(range(1, Maxpolydegree + 1), Error_train_lasso[:, i], 'o-', label=f'Train MSE, Lambda={lmbda:.4f}')
+    plt.plot(range(1, Maxpolydegree + 1), Error_test_lasso[:, i], 'o-', linestyle='--', label=f'Test MSE, Lambda={lmbda:.4f}')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('Mean Squared Error')
+plt.title('MSE vs. Polynomial Degree for different Lambda values (Lasso Regression)')
+plt.legend()
+plt.show()
+
+# Plotting R² for LASSO
+plt.figure(figsize=(12, 6))
+for i, lmbda in range(nlambdas):
+    plt.plot(range(1, Maxpolydegree + 1), Score_train_lasso[:, i], 'o-', label=f'Train R², Lambda={lmbda:.4f}')
+    plt.plot(range(1, Maxpolydegree + 1), Score_test_lasso[:, i], 'o-', linestyle='--', label=f'Test R², Lambda={lmbda:.4f}')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('R² Score')
+plt.title('R² vs. Polynomial Degree for different Lambda values (Lasso Regression)')
+plt.legend()
+plt.show()
+```
+
+### Explanation:
+1. **Random Sampling:**
+   - This section of code randomly samples a subset of points from the terrain data for more manageable computations.
+
+2. **Data Splitting and Scaling:**
+   - The `train_test_split` function is used to split the sampled data into training and testing sets.
+   - Min-Max scaling is applied to the training data, and the test data is scaled using the same parameters derived from the training data.
+
+3. **Lasso Regression:**
+   - A range of polynomial degrees and lambda values (regularization parameters) is defined.
+   - For each combination of polynomial degree and lambda, Lasso regression is performed using the training data.
+   - Predictions on both training and test sets are scaled back to their original ranges.
+   - The MSE and R² values are calculated and stored for each combination.
+
+4. **Plotting:**
+   - MSE and R² plots are generated to visualize the performance of Lasso regression across different polynomial degrees and lambda values.
+
+This approach provides insights into the trade-off between model complexity (polynomial degree) and regularization strength (λ) in Lasso regression and helps determine the most effective balance to reduce overfitting while maintaining predictive power.
+
+
+[Bruker]
+
+no min max scaling
+
+
+[GPT]
+
+Sure, we can omit the Min-Max scaling step and directly proceed with generating and analyzing Lasso regression models with different polynomial degrees and lambda values. Below is the adjusted code without Min-Max scaling:
+
+```python
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+from sklearn.linear_model import Lasso
+from imageio import imread
+
+# Load the terrain data
+terrain1 = imread('SRTM_data_Norway_2.tif')
+n_rows, n_cols = terrain1.shape
+
+# Create linearly spaced values
+x = np.linspace(0, 1, n_cols)
+y = np.linspace(0, 1, n_rows)
+
+# Create meshgrid for the entire dataset
+X, Y = np.meshgrid(x, y)
+x_flat = X.flatten()
+y_flat = Y.flatten()
+z_flat = terrain1.flatten()
+
+# Define functions for design matrix, MSE, and R2
+def create_design_matrix(x, y, degree):
+    num_terms = int((degree + 1) * (degree + 2) / 2)
+    X = np.zeros((len(x), num_terms))
+    idx = 0
+    for i in range(degree + 1):
+        for j in range(degree + 1 - i):
+            X[:, idx] = (x ** i) * (y ** j)
+            idx += 1
+    return X
+
+def MSE(z_data, z_model):
+    return mean_squared_error(z_data, z_model)
+
+def R2(z_data, z_model):
+    return r2_score(z_data, z_model)
+
+# Randomly sample a subset of points from the terrain data
+num_samples = 10000  # Adjust the number of samples based on memory and computational limits
+indices = np.random.choice(len(x_flat), num_samples, replace=False)
+x_sampled = x_flat[indices]
+y_sampled = y_flat[indices]
+z_sampled = z_flat[indices]
+
+# Split the sampled data into training and testing sets
+x_train, x_test, y_train, y_test, z_train, z_test = train_test_split(
+    x_sampled, y_sampled, z_sampled, test_size=0.2, random_state=315
+)
+
+# Define constants and initialize containers
+Maxpolydegree = 5
+nlambdas = 5
+lambdas = np.logspace(-4, 0, nlambdas)
+
+Error_train_lasso = np.zeros((Maxpolydegree, nlambdas))
+Score_train_lasso = np.zeros((Maxpolydegree, nlambdas))
+Error_test_lasso = np.zeros((Maxpolydegree, nlambdas))
+Score_test_lasso = np.zeros((Maxpolydegree, nlambdas))
+
+num_coefficients = int((Maxpolydegree + 1) * (Maxpolydegree + 2) / 2)
+betas_lasso = np.zeros((Maxpolydegree, nlambdas, num_coefficients))
+
+for degree in range(1, Maxpolydegree + 1):
+    X_design_train = create_design_matrix(x_train, y_train, degree)
+    X_design_test = create_design_matrix(x_test, y_test, degree)
+
+    for i, lmbda in enumerate(lambdas):
+        lasso = Lasso(alpha=lmbda, fit_intercept=False, max_iter=10000)
+        lasso.fit(X_design_train, z_train)
+        beta_lasso = lasso.coef_
+
+        z_est_train_lasso = lasso.predict(X_design_train)
+        z_est_test_lasso = lasso.predict(X_design_test)
+
+        Error_train_lasso[degree - 1, i] = M(z_train, z_est_train_lasso)
+        Score_train_lasso[degree - 1, i] = R2(z_train, z_est_train_lasso)
+        Error_test_lasso[degree - 1, i] = MSE(z_test, z_est_test_lasso)
+        Score_test_lasso[degree - 1, i] = R2(z_test, z_est_test_lasso)
+
+        betas_lasso[degree - 1, i, :beta_lasso.shape[0]] = beta_lasso
+
+# Plotting MSE for LASSO
+plt.figure(figsize=(12, 6))
+for i, lmbda in enumerate(lambdas):
+    plt.plot(range(1, Maxpolydegree + 1), Error_train_lasso[:, i], 'o-', label=f'Train MSE, Lambda={lmbda:.4f}')
+    plt.plot(range(1, Maxpolydegree + 1), Error_test_lasso[:, i], 'o-', linestyle='--', label=f'Test MSE, Lambda={lmbda:.4f}')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('Mean Squared Error')
+plt.title('MSE vs. Polynomial Degree for different Lambda values (Lasso Regression)')
+plt.legend()
+plt.show()
+
+# Plotting R² for LASSO
+plt.figure(figsize=(12, 6))
+for i, lmbda in enumerate(lambdas):
+    plt.plot(range(1, Maxpolydegree + 1), Score_train_lasso[:, i], 'o-', label=f'Train R², Lambda={lmbda:.4f}')
+    plt.plot(range(1, Maxpolydegree + 1), Score_test_lasso[:, i], 'o-', linestyle='--', label=f'Test R², Lambda={lmbda:.4f}')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('R² Score')
+plt.title('R² vs. Polynomial Degree for different Lambda values (Lasso Regression)')
+plt.legend()
+plt.show()
+```
+
+### Explanation:
+1. **Random Sampling:**
+   - Randomly sample a subset of points from the terrain data for computationally manageable tasks.
+
+2. **Data Splitting:**
+   - Split the sampled data into training and testing sets using `train_test_split`.
+
+3. **Lasso Regression:**
+   - A range of polynomial degrees and lambda values is defined.
+   - For each combination, Lasso regression is performed on the training data.
+   - Predictions for both training and test sets are generated.
+   - MSE and R² values are calculated and stored for each combination.
+
+4. **Plotting:**
+   - MSE and R² plots are generated to visualize the performance of Lasso regression across different polynomial degrees and lambda values.
+
+This approach will help us understand the performance of the Lasso regression model without scaling the data, giving us direct insights into overfitting and the effect of regularization.
+
+
+[Bruker]
+
+do you have to remove the intercept column in the design matrix when inputting it in the lasso function?
+
+
+[GPT]
+
+In general, the intercept term in a linear regression model can be handled in two ways:
+1. **Including the Intercept in the Design Matrix:** Manually adding a column of ones to your design matrix (which acts as the intercept).
+2. **Using the Model's Built-in Handling of the Intercept:** Letting the regression model automatically handle the intercept term by setting the `fit_intercept` parameter.
+
+By default, the `Lasso` class from `scikit-learn` includes an intercept term automatically if `fit_intercept=True` (which is the default setting). If `fit_intercept` is set to `False`, the model assumes that the input data is already centered (i.e., mean is zero) and does not add an intercept term.
+
+Given your code where `fit_intercept=False`, you should include the intercept term manually if required. Here's the adjusted approach:
+
+1. Add the intercept column manually.
+2. Ensure `fit_intercept` is set to `False` to prevent double counting.
+
+### With Manual Intercept Addition
+
+Here's your code modified to ensure the intercept term is correctly handled manually by adding a column of ones to the design matrix:
+
+```python
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+from sklearn.linear_model import Lasso
+from imageio import imread
+
+# Load the terrain data
+terrain1 = imread('SRTM_data_Norway_2.tif')
+n_rows, n_cols = terrain1.shape
+
+# Create linearly spaced values
+x = np.linspace(0, 1, n_cols)
+y = np.linspace(0, 1, n_rows)
+
+# Create meshgrid for the entire dataset
+X, Y = np.meshgrid(x, y)
+x_flat = X.flatten()
+y_flat = Y.flatten()
+z_flat = terrain1.flatten()
+
+# Define functions for design matrix, MSE, and R2
+def create_design_matrix(x, y, degree):
+    num_terms = int((degree + 1) * (degree + 2) / 2)
+    X = np.zeros((len(x), num_terms))
+    idx = 0
+    for i in range(degree + 1):
+        for j in range(degree + 1 - i):
+            X[:, idx] = (x ** i) * (y ** j)
+            idx += 1
+    return X
+
+def MSE(z_data, z_model):
+    return mean_squared_error(z_data, z_model)
+
+def R2(z_data, z_model):
+    return r2_score(z_data, z_model)
+
+# Randomly sample a subset of points from the terrain data
+num_samples = 10000  # Adjust the number of samples based on memory and computational limits
+indices = np.random.choice(len(x_flat), num_samples, replace=False)
+x_sampled = x_flat[indices]
+y_sampled = y_flat[indices]
+z_sampled = z_flat[indices]
+
+# Split the sampled data into training and testing sets
+x_train, x_test, y_train, y_test, z_train, z_test = train_test_split(
+    x_sampled, y_sampled, z_sampled, test_size=0.2, random_state=315
+)
+
+# Define constants and initialize containers
+Maxpolydegree = 5
+nlambdas = 5
+lambdas = np.logspace(-4, 0, nlambdas)
+
+Error_train_lasso = np.zeros((Maxpolydegree, nlambdas))
+Score_train_lasso = np.zeros((Maxpolydegree, nlambdas))
+Error_test_lasso = np.zeros((Maxpolydegree, nlambdas))
+Score_test_lasso = np.zeros((Maxpolydegree, nlambdas))
+
+num_coefficients = int((Maxpolydegree + 1) * (Maxpolydegree + 2) / 2)
+betas_lasso = np.zeros((Maxpolydegree, nlambdas, num_coefficients))
+
+for degree in range(1, Maxpolydegree + 1):
+    X_design_train = create_design_matrix(x_train, y_train, degree)
+    X_design_test = create_design_matrix(x_test, y_test, degree)
+    
+    # Add intercept term
+    X_design_train = np.hstack([np.ones((X_design_train.shape[0], 1)), X_design_train])
+    X_design_test = np.hstack([np.ones((X_design_test.shape[0], 1)), X_design_test])
+
+    for i, lmbda in enumerate(lambdas):
+        lasso = Lasso(alpha=lmbda, fit_intercept=False, max_iter=10000)
+        lasso.fit(X_design_train, z_train)
+        beta_lasso = lasso.coef_
+
+        z_est_train_lasso = lasso.predict(X_design_train)
+        z_est_test_lasso = lasso.predict(X_design_test)
+
+        Error_train_lasso[degree - 1, i] = MSE(z_train, z_est_train_lasso)
+        Score_train_lasso[degree - 1, i] = R2(z_train, z_est_train_lasso)
+        Error_test_lasso[degree - 1, i] = MSE(z_test, z_est_test_lasso)
+        Score_test_lasso[degree - 1, i] = R2(z_test, z_est_test_lasso)
+
+        betas_lasso[degree - 1, i, :beta_lasso.shape[0]] = beta_lasso
+
+# Plotting MSE for LASSO
+plt.figure(figsize=(12, 6))
+for i, lmbda in enumerate(lambdas):
+    plt.plot(range(1, Maxpolydegree + 1), Error_train_lasso[:, i], 'o-', label=f'Train MSE, Lambda={lmbda:.4f}')
+    plt.plot(range(1, Maxpolydegree + 1), Error_test_lasso[:, i], 'o-', linestyle='--', label=f'Test MSE, Lambda={lmbda:.4f}')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('Mean Squared Error')
+plt.title('MSE vs. Polynomial Degree for different Lambda values (Lasso Regression)')
+plt.legend()
+plt.show()
+
+# Plotting R² for LASSO
+plt.figure(figsize=(12, 6))
+for i, lmbda in enumerate(lambdas):
+    plt.plot(range(1, Maxpolydegree + 1), Score_train_lasso[:, i], 'o-', label=f'Train R², Lambda={lmbda:.4f}')
+    plt.plot(range(1, Maxpolydegree + 1), Score_test_lasso[:, i], 'o-', linestyle='--', label=f'Test R², Lambda={lmbda:.4f}')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('R² Score')
+plt.title('R² vs. Polynomial Degree for different Lambda values (Lasso Regression)')
+plt.legend()
+plt.show()
+```
+
+### Summary:
+- **Intercept Handling:** The intercept term is manually added to the design matrix for both training and testing data. This is done by appending a column of ones to the design matrix.
+- **Model Configuration:** Since we are adding a column of ones manually, the `fit_intercept` parameter is set to `False` to ensure no additional intercept term is added by the Lasso model.
+- **Workflow:** The rest of the workflow remains unchanged, ensuring MSE and R² values are calculated correctly for each polynomial degree and λ value, and the results are plotted for analysis.
+
+
+[Bruker]
+
+why do you have to center it when doing lasso without intercept?
+
+
+[GPT]
+
+When performing Lasso regression without an intercept term (`fit_intercept=False`), it is generally advisable to center the data (subtract the mean) for both the predictors and the response variable. Here are the primary reasons why centering is important in such scenarios:
+
+1. **Optimal Regularization:**
+   - When the mean of the predictors and the response variable is not zero, the optimization problem solved by Lasso can lead to biased estimates. Centering the data helps in applying regularization correctly and uniformly, improving the efficiency and performance of Lasso regression.
+
+2. **Interpretability:**
+   - Centered data ensures that the regularization penalty is applied uniformly across all coefficients, making the interpretation of coefficients more straightforward. Without centering, certain coefficients might be disproportionately penalized or less responsive to the regularization term.
+
+3. **Numerical Stability:**
+   - Centering helps in improving the numerical stability of the optimization algorithms used in Lasso regression. It also reduces multicollinearity among predictors, leading to better-behaved optimization problems.
+
+Given the importance of centering, the revised approach should include centering the predictors and the response variable before fitting the model.
+
+### Updated Code with Centering of Data
+
+Here's the revised code that includes centering of the data:
+
+```python
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+from sklearn.linear_model import Lasso
+from imageio import imread
+
+# Load the terrain data
+terrain1 = imread('SRTM_data_Norway_2.tif')
+n_rows, n_cols = terrain1.shape
+
+# Create linearly spaced values
+x = np.linspace(0, 1, n_cols)
+y = np.linspace(0, 1, n_rows)
+
+# Create meshgrid for the entire dataset
+X, Y = np.meshgrid(x, y)
+x_flat = X.flatten()
+y_flat = Y.flatten()
+z_flat = terrain1.flatten()
+
+# Define functions for design matrix, MSE, and R2
+def create_design_matrix(x, y, degree):
+    num_terms = int((degree+1)*(degree+2)/2)
+    X = np.zeros((len(x), num_terms))
+    idx = 0
+    for i in range(degree+1):
+        for j in range(degree+1-i):
+            X[:, idx] = (x**i) * (y**j)
+            idx += 1
+    return X
+
+def MSE(z_data, z_model):
+    return mean_squared_error(z_data, z_model)
+
+def R2(z_data, z_model):
+    return r2_score(z_data, z_model)
+
+# Randomly sample a subset of points from the terrain data
+num_samples = 10000  # Adjust the number of samples based on memory and computational limits
+indices = np.random.choice(len(x_flat), num_samples, replace=False)
+x_sampled = x_flat[indices]
+y_sampled = y_flat[indices]
+z_sampled = z_flat[indices]
+
+# Split the sampled data into training and testing sets
+x_train, x_test, y_train, y_test, z_train, z_test = train_test_split(
+    x_sampled, y_sampled, z_sampled, test_size=0.2, random_state=315
+)
+
+# Centering the data
+x_train_mean = np.mean(x_train)
+y_train_mean = np.mean(y_train)
+z_train_mean = np.mean(z_train)
+
+x_train -= x_train_mean
+y_train -= y_train_mean
+z_train -= z_train_mean
+
+x_test -= x_train_mean
+y_test -= y_train_mean
+z_test -= z_train_mean
+
+# Define constants and initialize containers
+Maxpolydegree = 5
+nlambdas = 5
+lambdas = np.logspace(-4, 0, nlambdas)
+
+Error_train_lasso = np.zeros((Maxpolydegree, nlambdas))
+Score_train_lasso = np.zeros((Maxpolydegree, nlambdas))
+Error_test_lasso = np.zeros((Maxpolydegree, nlambdas))
+Score_test_lasso = np.zeros((Maxpolydegree, nlambdas))
+
+num_coefficients = int((Maxpolydegree+1)*(Maxpolydegree+2)/2)
+betas_lasso = np.zeros((Maxpolydegree, nlambdas, num_coefficients))
+
+for degree in range(1, Maxpolydegree+1):
+    X_design_train = create_design_matrix(x_train, y_train, degree)
+    X_design_test =_design_matrix(x_test, y_test, degree)
+
+    for i, lmbda in enumerate(lambdas):
+        lasso = Lasso(alpha=lmbda, fit_intercept=False, max_iter=10000)
+        lasso.fit(X_design_train, z_train)
+        beta_lasso = lasso.coef_
+
+        z_est_train_lasso = lasso.predict(X_design_train)
+        z_est_test_lasso = lasso.predict(X_design_test)
+
+        Error_train_lasso[degree-1, i] = MSE(z_train, z_est_train_lasso)
+        Score_train_lasso[degree-1, i] = R(z_train, z_est_train_lasso)
+        Error_test_lasso[degree-1, i] = MSE(z_test, z_est_test_lasso)
+        Score_test_lasso[degree-1, i] = R2(z, z_est_test_lasso)
+
+        betas_lasso[degree-1, i, :beta_lasso.shape[0]] = beta_lasso
+
+# Plotting MSE for LASSO
+plt.figure(figsize=(12, 6))
+for i, lmbda in enumerate(lambdas):
+    plt.plot(range(1, Maxpolydegree+1), Error_train_lasso[:, i], 'o-', label=f'Train MSE, Lambda={lmbda:.4f}')
+    plt.plot(range(1, Maxpolydegree+1), Error_test_lasso[:, i], 'o-', linestyle='--', label=f'Test MSE, Lambda={lmbda:.4f}')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('Mean Squared Error')
+plt.title('MSE vs. Polynomial Degree for different Lambda values (Lasso Regression)')
+plt.legend()
+plt.show()
+
+# Plotting R² for LASSO
+plt.figure(figsize=(12, 6))
+for i, lmbda in enumerate(lambdas):
+    plt.plot(range(1, Maxpolydegree+1), Score_train_lasso[:, i], 'o-', label=f'Train R², Lambda={lmbda:.4f}')
+    plt.plot(range(1, Maxpolydegree+1), Score_test_lasso[:, i], 'o-', linestyle='--', label=f'Test R², Lambda={lmbda:.4f}')
+plt.xlabel('Polynomial Degree')
+plt.ylabel('R² Score')
+plt.title('R² vs. Polynomial Degree for different Lambda values (Lasso Regression)')
+plt.legend()
+plt.show()
+```
+
+### Key Points:
+1. **Centering the Data:**
+   - Center the training data (`x_train`, `y_train`, `z_train`) by subtracting their respective means.
+   - Apply the same centering transformation to the test data (`x_test`, `y_test`, `z_test`) using the means of the training data to ensure consistency.
+
+2. **Fit the Lasso Model:**
+   - The Lasso model is then fitted to the centered training data with `fit_intercept=False`.
+
+3. **Interpret Results:**
+   - The resulting coefficients, MSE, and R² scores are interpreted and plotted as before, ensuring that regularization is applied appropriately and comparisons across different polynomial degrees and lambda values are meaningful.
+
+By centering the data and manually handling the intercept term by not fitting it within the model, we ensure that the penalization imposed by Lasso is uniform across predictors, leading to more robust and interpretable results.
