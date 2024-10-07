@@ -3,7 +3,7 @@
 ## FYS-STK4155 - Applied Data Analysis and Machine Learning - Autumn 2024
 
 ### Project Description
-This project focuses on applied data analysis and machine learning techniques, specifically for terrain data and Franke data. The goal is to explore and implement regression models and assess their performance.
+This project focuses on applied data analysis and machine learning techniques, specifically for terrain data and data from the Franke function. The goal of this project is to learn about different regression methods and how they apply to topographic data and two-dimensional functions.
 
 ### Installation
 To set up the project locally, follow these steps:
