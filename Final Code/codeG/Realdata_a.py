@@ -93,6 +93,12 @@ for poly_degree in degrees:
     r2_train.append(R2(z_train_centered, z_train_pred))
     r2_test.append(R2(z_test_centered, z_test_pred))
     coefficients.append(beta)
+    # Print results
+    if poly_degree == 7:
+        print(f'MSE Train: {min(mse_train)}')
+        print(f'MSE Test: {min(mse_test)}')
+        print(f'R2 Train: {max(r2_train)}')
+        print(f'R2 Test: {max(r2_test)}')
 
 # Print results
 print(f'MSE Train: {mse_train}')

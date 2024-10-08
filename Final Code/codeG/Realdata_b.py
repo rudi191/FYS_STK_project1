@@ -72,9 +72,9 @@ y_test = y_test - y_mean
 z_test = z_test - z_mean
 
 # Ridge Parameters
-Maxpolydegree = 15
-nlambdas = 10
-lambdas = np.logspace(-4, 4, nlambdas)
+Maxpolydegree = 10
+nlambdas = 5
+lambdas = np.logspace(-4, 0, nlambdas)
 
 # Initialize result storage
 Error_train_ridge = np.zeros((Maxpolydegree, nlambdas))
@@ -100,6 +100,12 @@ for degree in range(1, Maxpolydegree + 1):
         Score_test_ridge[degree-1, i] = R2(z_test, z_est_test_ridge)
         
         betas_ridge[degree-1, i, :beta_ridge.shape[0]] = beta_ridge
+             # Print results best results
+        if degree == 10:
+            print(f'minimum MSE Train: {np.min(Error_train_ridge)}')
+            print(f'minimum MSE Test: {np.min(Error_test_ridge)}')
+            print(f'maximum R2 Train: {np.max(Score_train_ridge)}')
+            print(f'maximum R2 Test: {np.max(Score_test_ridge)}')
 
 # Plotting MSE for Ridge Regression
 plt.figure(figsize=(12, 6))

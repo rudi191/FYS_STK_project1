@@ -75,6 +75,7 @@ from sklearn.utils import resample
 Maxpolydegree = 21
 n_boostraps = 100
 
+
 error = np.zeros(Maxpolydegree)
 bias = np.zeros(Maxpolydegree)
 variance = np.zeros(Maxpolydegree)
@@ -95,7 +96,7 @@ for degree in range(1, Maxpolydegree + 1):
     variance[degree-1] = np.mean(np.var(z_pred, axis=1, keepdims=True))
 
 plt.plot(polydegree, error, label='Error')
-plt.plot(polydegree, bias, label='Bias^2')
+plt.plot(polydegree, bias, label='Bias')
 plt.plot(polydegree, variance, label='Variance')
 plt.title("Bias, Error, and Variance for OLS on Terrain Data")
 plt.xlabel('Polynomial Degree')

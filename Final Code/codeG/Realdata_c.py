@@ -75,9 +75,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Define constants and initialize containers
-Maxpolydegree = 9
-nlambdas = 6
-lambdas = np.logspace(-6, 1, nlambdas)
+Maxpolydegree = 10
+nlambdas = 5
+lambdas = np.logspace(-4, 0, nlambdas)
 
 Error_train_lasso = np.zeros((Maxpolydegree, nlambdas))
 Score_train_lasso = np.zeros((Maxpolydegree, nlambdas))
@@ -106,6 +106,11 @@ for degree in range(1, Maxpolydegree + 1):
         Score_test_lasso[degree-1, i] = R2(z_test, z_est_test_lasso)
         
         betas_lasso[degree-1, i, :beta_lasso.shape[0]] = beta_lasso
+        if degree == 10:
+            print(f'minimum MSE Train: {np.min(Error_train_lasso)}')
+            print(f'minimum MSE Test: {np.min(Error_test_lasso)}')
+            print(f'maximum R2 Train: {np.max(Score_train_lasso)}')
+            print(f'maximum R2 Test: {np.max(Score_test_lasso)}')
 
 # Plotting MSE for LASSO
 plt.figure(figsize=(12, 6))
