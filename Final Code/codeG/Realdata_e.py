@@ -1,22 +1,11 @@
 import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, r2_score
-import matplotlib.pyplot as plt
+from imageio.v2 import imread
 from numpy.linalg import inv
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split, KFold, cross_val_score
-from numpy.linalg import inv
-from sklearn.linear_model import Ridge, Lasso
-from sklearn.utils import resample
-from sklearn.preprocessing import PolynomialFeatures, StandardScaler
-from sklearn.pipeline import make_pipeline
-from imageio import imread
-from numpy.linalg import inv
-from matplotlib import cm
+import os
 
-
-# Function to create design matrix
+# DATA GENERATION - SAME FOR A-F
 def create_design_matrix(x, y, degree):
     num_terms = int((degree + 1)*(degree + 2)/2)
     X = np.zeros((len(x), num_terms))
@@ -27,35 +16,40 @@ def create_design_matrix(x, y, degree):
             idx += 1
     return X
 
-# Define MSE and R2 functions
-def MSE(z_data, z_model):
-    return np.mean((z_data - z_model)**2)
+# Defining MSE and R2 functions
+def MSE(z_data, z_ols_model):
+    return np.mean((z_data - z_ols_model)**2)
 
-def R2(z_data, z_model):
-    return 1 - np.sum((z_data - z_model)**2) / np.sum((z_data - np.mean(z_data))**2)
+# The R2 function was taken from Week 35: From Ordinary Linear Regression to Ridge and Lasso Regression,
+# Morten Hjorth-Jensen, Department of Physics, University of Oslo.
+# https://github.com/CompPhysics/MachineLearning/blob/master/doc/LectureNotes/week37.ipynb
+def R2(z_data, z_ols_model):
+    return 1 - np.sum((z_data - z_ols_model)**2) / np.sum((z_data - np.mean(z_data))**2)
 
-# Load the terrain data
-terrain1 = imread('SRTM_data_Norway_2.tif')
+current_dir = os.path.dirname("codeG")
+file_path = os.path.join(current_dir, '..', '..', 'Datafiles', 'SRTM_data_Norway_2.tif')
+terrain1 = imread(file_path)
+
 n_rows, n_cols = terrain1.shape
 
 # Create linearly spaced values
 x = np.linspace(0, 1, n_cols)
 y = np.linspace(0, 1, n_rows)
 
-# Create meshgrid for the entire dataset
 X, Y = np.meshgrid(x, y)
 x_flat = X.flatten()
 y_flat = Y.flatten()
 z_flat = terrain1.flatten()
-# Normalize the z values
+
+#as x and y is between 0 and 1 and z values were vastly different we need to normalize the values
 z_min = z_flat.min()
 z_max = z_flat.max()
 z_normalized = (z_flat - z_min) / (z_max - z_min)
+
 # Split the data into training and testing sets
 x_train, x_test, y_train, y_test, z_train, z_test = train_test_split(
     x_flat, y_flat, z_normalized, test_size=0.0002, train_size=0.0008, random_state=315
 )
-
 # Centering the data by subtracting the mean, the values are already scaled between 0 and 1. 
 x_mean = np.mean(x_train, axis=0)
 y_mean = np.mean(y_train, axis=0)
@@ -69,6 +63,7 @@ x_test = x_test - x_mean
 y_test = y_test - y_mean
 z_test = z_test - z_mean
 
+#PART E about the same as Franke function
 from sklearn.utils import resample
 
 # Bootstrapping unscaled data
@@ -80,8 +75,9 @@ error = np.zeros(Maxpolydegree)
 bias = np.zeros(Maxpolydegree)
 variance = np.zeros(Maxpolydegree)
 polydegree = np.zeros(Maxpolydegree)
-testmatrix4 = create_design_matrix(x_train, y_train, 3)
-print("design matrix without scaling",testmatrix4)
+#testmatrix4 = create_design_matrix(x_train, y_train, 3)
+#print("design matrix without scaling",testmatrix4)
+
 for degree in range(1, Maxpolydegree + 1):
     z_pred = np.empty((z_test.shape[0], n_boostraps))
     for i in range(n_boostraps):

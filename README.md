@@ -14,15 +14,11 @@ To set up the project locally, follow these steps:
     cd FYS_STK_project1
     ```
 
-2. **Create and activate a virtual environment (optional but recommended):**
+2. **Install the required dependencies:**
     ```sh
-    python3 -m venv env
-    source env/bin/activate  # On Windows use `env\Scripts\activate`
-    ```
-
-3. **Install the required dependencies:**
-    ```sh
-    pip install -r requirements.txt
+    pip install numpy matplotlib scikit-learn imageio seaborn
+    if python3 run:
+    pip3 install numpy matplotlib scikit-learn imageio seaborn
     ```
 
 ### Project Structure
