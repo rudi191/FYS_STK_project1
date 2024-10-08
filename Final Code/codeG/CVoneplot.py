@@ -78,7 +78,7 @@ z_test = z_test - z_mean
 
 # Set up k-fold cross-validation
 Maxpolydegree = 10
-k = 5
+k = 10
 kfold = KFold(n_splits=k, shuffle=True, random_state=315)
 
 # OLS Regression
