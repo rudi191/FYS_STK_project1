@@ -1,27 +1,14 @@
 #Solution to f) cross-validation
-from sklearn.model_selection import KFold
 from sklearn.model_selection import cross_val_predict
-from sklearn.model_selection import cross_val_score
-from sklearn.model_selection import cross_validate
-from sklearn.linear_model import Ridge
-from sklearn.linear_model import Lasso
 from sklearn.linear_model import LinearRegression
-import matplotlib.pyplot as plt
-from numpy.linalg import inv
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split, KFold, cross_val_score
-from numpy.linalg import inv
 from sklearn.linear_model import Ridge, Lasso
-from sklearn.utils import resample
-from sklearn.preprocessing import PolynomialFeatures, StandardScaler
-from sklearn.pipeline import make_pipeline
-from imageio import imread
-from numpy.linalg import inv
-from matplotlib import cm
+from imageio.v2 import imread
+import os
 
-
-# Function to create design matrix
+# DATA GENERATION - SAME FOR A-F
 def create_design_matrix(x, y, degree):
     num_terms = int((degree + 1)*(degree + 2)/2)
     X = np.zeros((len(x), num_terms))
@@ -32,15 +19,20 @@ def create_design_matrix(x, y, degree):
             idx += 1
     return X
 
-# Define MSE and R2 functions
-def MSE(z_data, z_model):
-    return np.mean((z_data - z_model)**2)
+# Defining MSE and R2 functions
+def MSE(z_data, z_ols_model):
+    return np.mean((z_data - z_ols_model)**2)
 
-def R2(z_data, z_model):
-    return 1 - np.sum((z_data - z_model)**2) / np.sum((z_data - np.mean(z_data))**2)
+# The R2 function was taken from Week 35: From Ordinary Linear Regression to Ridge and Lasso Regression,
+# Morten Hjorth-Jensen, Department of Physics, University of Oslo.
+# https://github.com/CompPhysics/MachineLearning/blob/master/doc/LectureNotes/week37.ipynb
+def R2(z_data, z_ols_model):
+    return 1 - np.sum((z_data - z_ols_model)**2) / np.sum((z_data - np.mean(z_data))**2)
 
-# Load the terrain data
-terrain1 = imread('SRTM_data_Norway_2.tif')
+current_dir = os.path.dirname("codeG")
+file_path = os.path.join(current_dir, '..', '..', 'Datafiles', 'SRTM_data_Norway_2.tif')
+terrain1 = imread(file_path)
+
 n_rows, n_cols = terrain1.shape
 
 # Create linearly spaced values
@@ -76,6 +68,7 @@ x_test = x_test - x_mean
 y_test = y_test - y_mean
 z_test = z_test - z_mean
 
+#PART F about the same as Franke function
 
 # Set up k-fold cross-validation
 Maxpolydegree = 10
@@ -83,32 +76,56 @@ k = 10
 kfold = KFold(n_splits=k, shuffle=True, random_state=315)
 
 # OLS Regression
-ols_mse_train = np.zeros(Maxpolydegree)
-ols_mse_test = np.zeros(Maxpolydegree)
+ols_mse = np.zeros(Maxpolydegree)
 
 for degree in range(1, Maxpolydegree + 1):
     X_design_temp = create_design_matrix(x_train, y_train, degree)
     model = LinearRegression()
-    
-    # Compute train MSE
-    model.fit(X_design_temp, z_train)
-    z_pred_train = model.predict(X_design_temp)
-    ols_mse_train[degree-1] = np.mean((z_train - z_pred_train)**2)
-    
-    # Compute test MSE using cross-validation
+    z_pred = cross_val_predict(model, X_design_temp, z_train, cv=kfold)
     scores = cross_val_score(model, X_design_temp, z_train, scoring='neg_mean_squared_error', cv=kfold)
-    ols_mse_test[degree-1] = -np.mean(scores)
+    ols_mse[degree-1] = -np.mean(scores)
 
-# Plotting MSE for OLS Regression
+# Ridge Regression
+nlambdas = 5
+lambdas = np.logspace(-5,-2 , nlambdas)
+ridge_mse = np.zeros((Maxpolydegree, nlambdas))
+
+for degree in range(1, Maxpolydegree + 1):
+    X_design_temp = create_design_matrix(x_train, y_train, degree)
+    for i in range(nlambdas):
+        lmbda = lambdas[i]
+        ridge = Ridge(alpha=lmbda, fit_intercept=False)
+        estimated_mse_folds = cross_val_score(ridge, X_design_temp, z_train, scoring='neg_mean_squared_error', cv=kfold)
+        ridge_mse[degree-1, i] = np.mean(-estimated_mse_folds)
+
+# Lasso Regression
+lasso_mse = np.zeros((Maxpolydegree, nlambdas))
+
+for degree in range(1, Maxpolydegree + 1):
+    X_design_temp = create_design_matrix(x_train, y_train, degree)
+    for i in range(nlambdas):
+        lmbda = lambdas[i]
+        lasso = Lasso(alpha=lmbda, fit_intercept=False, max_iter=10000)
+        estimated_mse_folds = cross_val_score(lasso, X_design_temp, z_train, scoring='neg_mean_squared_error', cv=kfold)
+        lasso_mse[degree-1, i] = np.mean(-estimated_mse_folds)
+
+# Plotting all three MSEs in one plot
 plt.figure(figsize=(12, 8))
 
 # OLS MSE plot
-plt.plot(range(1, Maxpolydegree + 1), ols_mse_train, marker='', linestyle='-', label='OLS Train')
-plt.plot(range(1, Maxpolydegree + 1), ols_mse_test, marker='', linestyle='-', label='OLS Test')
+plt.plot(range(1, Maxpolydegree + 1), ols_mse, marker='o', linestyle='-', label='OLS')
+
+# Ridge MSE plot
+for i, lmbda in enumerate(lambdas):
+    plt.plot(range(1, Maxpolydegree + 1), ridge_mse[:, i], linestyle='--', label=f'Ridge Lambda={lmbda:.4f}')
+
+# Lasso MSE plot
+for i, lmbda in enumerate(lambdas):
+    plt.plot(range(1, Maxpolydegree + 1), lasso_mse[:, i], linestyle='-', label=f'Lasso Lambda={lmbda:.4f}')
 
 plt.xlabel('Polynomial Degree')
 plt.ylabel('MSE')
-plt.title('MSE vs Polynomial Degree for OLS Regression with Cross-Validation')
+plt.title('MSE vs Polynomial Degree for OLS, Ridge, and Lasso Regression')
 plt.legend()
-plt.savefig("figures/g/CVOLS_MSE_Plot.png")
+plt.savefig("figures\g\CVoneplotTerrain2.png")
 plt.show()
